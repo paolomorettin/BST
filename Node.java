@@ -3,11 +3,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
 class Node {
-    public static int FREE = 0;
-    public static int FLAG = 1;
-    public static int MARK = 2;
+    public static final int FREE = 0;
+    public static final int FLAG = 1;
+    public static final int MARK = 2;
 
-    private int key;
+    private final int key;
     public AtomicReference<Node> left, right;
     public AtomicInteger flagMark;
 
@@ -22,7 +22,7 @@ class Node {
 	if (left.get() == null && right.get() == null)
 	    return "[ " + key + " ]";
 	else
-	    return "( " + key + " " + left.get().prettyPrint() + " " + right.get().prettyPrint() + " )";
+	    return "( " + key + " {" + flagMark.get() + "} " + left.get().prettyPrint() + " " + right.get().prettyPrint() + " )";
     }
 
     public String prettyLeaves() {

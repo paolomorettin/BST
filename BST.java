@@ -1,5 +1,5 @@
 
-//import java.util.*;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.ThreadLocalRandom;
@@ -7,69 +7,75 @@ import java.util.concurrent.ThreadLocalRandom;
 public class BST {
 
     AtomicReference<Node> root = null;
-    //    AtomicInteger rootFlagMark;
+    AtomicInteger rootFlag;
 
     public BST() {
 	root = new AtomicReference<Node>(null);
-	//rootFlagMark = new AtomicInteger(Node.FREE);
+	rootFlag = new AtomicInteger(Node.FREE);
     }
 
-    // XXX synchronized? really?
     public synchronized String prettyPrint() {
-	if (root.get() != null)
-	    return root.get().prettyPrint();
+	Node temp_root = root.get();
+	if (temp_root != null)
+	    return temp_root.prettyPrint();
 	else
 	    return "Empty tree";
     }
 
     public synchronized String prettyLeaves() {
-	if (root.get() != null)
-	    return root.get().prettyLeaves();
+	Node temp_root = root.get();
+	if (temp_root != null)
+	    return temp_root.prettyLeaves();
 	else
 	    return "Empty tree";
     }
 
     public boolean verify() {
-	return root.get().verify(Integer.MIN_VALUE,Integer.MAX_VALUE);
+	Node temp_root = root.get();
+	if (temp_root != null) 
+	    return temp_root.verify(Integer.MIN_VALUE,Integer.MAX_VALUE);
+	return true;
     }
 
     public void insert(int key) {
+	System.out.println("Thread:"+Thread.currentThread().getId()+" Insert(" + key + ") - " + this.prettyPrint());
 	while (true) {
+	    
 	    Node temp_root = root.get();
 	    // CASE: no tree at all
 	    if (temp_root == null) {
-		Node newNode = new Node(key,null,null);
-		if (root.compareAndSet(null,newNode))
-		    return;
+		if (rootFlag.compareAndSet(Node.FREE,Node.FLAG)) {
+		    Node newNode = new Node(key,null,null);
+		    if (root.compareAndSet(null,newNode)) {
+			rootFlag.set(Node.FREE);
+			return;
+		    }
+		    rootFlag.set(Node.FREE);
+		}
+
 	    }
 	    // CASE: just a single leaf
 	    else if (temp_root.isLeaf()) {
-		if (temp_root.getKey() < key) {
-		    Node newNode = new Node(key,new Node(temp_root.getKey(),null,null),new Node(key, null, null));
-		    //if (rootFlagMark.compareAndSet(Node.FREE,Node.FLAG)) {
-			if (root.compareAndSet(temp_root,newNode)) {
-			    //rootFlagMark.set(Node.FREE);
-			    return;
-			}
-			//rootFlagMark.set(Node.FREE);
-			//}
-		} else if (temp_root.getKey() > key) {
-		    Node newNode = new Node(temp_root.getKey(),new Node(key, null, null),new Node(temp_root.getKey(),null,null));
-		    //if (rootFlagMark.compareAndSet(Node.FREE,Node.FLAG)) {
-			if (root.compareAndSet(temp_root,newNode)) {
-			    //rootFlagMark.set(Node.FREE);
-			    return;
-			}
-			//rootFlagMark.set(Node.FREE);
-			//}
-		} else {
+		Node newNode = null;
+		if (temp_root.getKey() < key) 
+		    newNode = new Node(key,new Node(temp_root.getKey(),null,null),new Node(key, null, null));
+		else if (temp_root.getKey() > key) 
+		    newNode = new Node(temp_root.getKey(),new Node(key, null, null),new Node(temp_root.getKey(),null,null));
+		else
 		    return;
+		
+		if (rootFlag.compareAndSet(Node.FREE,Node.FLAG)) {
+		    if (root.compareAndSet(temp_root,newNode)) {
+			rootFlag.set(Node.FREE);
+			return;
+		    }
+		    rootFlag.set(Node.FREE);
 		}
 	    }
 	    // CASE: non-trivial tree
 	    else {
 		// traverse the tree until a leaf is found
-		Node n = root.get();
+		Node n = temp_root;
 		Node p = null;
 		while (!n.isLeaf()) {
 		    p = n;
@@ -88,11 +94,11 @@ public class BST {
 
 		if (newNode != null) {
 		    if (p.flagMark.compareAndSet(Node.FREE,Node.FLAG)) {
-			if (p.getKey() < key) {
+			if (p.getKey() <= n.getKey()) {
 			    if (p.right.compareAndSet(n,newNode)) {
 				p.flagMark.set(Node.FREE);
 				return;
-			    }		
+			    }
 			}
 			else {
 			    if (p.left.compareAndSet(n,newNode)) {
@@ -101,68 +107,113 @@ public class BST {
 			    }
 			}
 			p.flagMark.set(Node.FREE);
-		    }
+		    } 
 		}
 	    }
 	}
     }
 
     public void delete(int key) {
-	if (root != null) {
-	    if (root.isLeaf() && root.getKey() == key) {
-		root = null;
-	    } else {
-		System.out.printf("NONTRIVIAL: ");
-		Node g,p,n;
-		g = p = n = root;
-		while (!n.isLeaf()) {
-		    g = p;
-		    p = n;
-		    if (n.getKey() > key)
-			n = n.left.get();
-		    else
-			n = n.right.get();
-		}
-		System.out.printf("g: %d p: %d n: %d\n",g.getKey(),p.getKey(),n.getKey());
-		if (n.getKey() == key) {
-		    Node newBranch;
-		    if (n.getKey() < p.getKey())
-			newBranch = p.right.get();			    
-		    else
-			newBranch = p.left.get();
-		    if (g == p) {
-			root = newBranch;
-		    } else {
-			if (g.getKey() >= p.getKey())
-			    g.setLeft(newBranch);
-			else
-			    g.setRight(newBranch);
+	//System.out.println("Thread:"+Thread.currentThread().getId()+" Delete(" + key + ") - " + this.prettyPrint());
+	while (true) {	    
+	    Node temp_root = root.get();
+	    if (temp_root == null)
+		return;
+
+	    // traverse the tree
+	    Node g,p,n;
+	    g = p = n = temp_root;
+	    while (!n.isLeaf()) {
+		g = p;
+		p = n;
+		if (n.getKey() > key)
+		    n = n.left.get();
+		else
+		    n = n.right.get();
+	    }
+
+	    // key isn't there
+	    if (n.getKey() != key)
+		return;
+
+	    // CASE: n is the root
+	    if (n == p) {
+		if (rootFlag.compareAndSet(Node.FREE,Node.FLAG)) {
+		    if (p.flagMark.compareAndSet(Node.FREE,Node.MARK)) { // is this necessary? yes.
+			if (root.compareAndSet(temp_root,null)) {
+			    rootFlag.set(Node.FREE);
+			    return;
+			}
 		    }
+		    rootFlag.set(Node.FREE);
 		}
 	    }
+	    else {
+		Node newBranch;
+		if (n.getKey() >= p.getKey())
+		    newBranch = p.left.get();
+		else 
+		    newBranch = p.right.get();
+
+		// CASE: n is a root child
+		if (p == g) {
+		    if (rootFlag.compareAndSet(Node.FREE,Node.FLAG)) {
+			if (p.flagMark.compareAndSet(Node.FREE,Node.MARK)) {
+			    if (root.compareAndSet(p,newBranch)) {
+				rootFlag.set(Node.FREE);
+				return;
+			    }
+			}
+			rootFlag.set(Node.FREE);
+		    }
+		}
+		// CASE: nontrivial case
+		else {
+		    if (g.flagMark.compareAndSet(Node.FREE,Node.FLAG)) {
+			if (p.flagMark.compareAndSet(Node.FREE,Node.MARK)) {
+			    if (p.getKey() < g.getKey()) {
+				if (g.left.compareAndSet(p,newBranch)) {
+				    g.flagMark.set(Node.FREE);
+				    return;
+				}
+			    }
+			    else {
+				if (g.right.compareAndSet(p,newBranch)) {
+				    g.flagMark.set(Node.FREE);
+				    return;
+				}
+			    }
+			}
+			g.flagMark.set(Node.FREE);
+		    }
+		}    		
+	    }
 	}
-    
-    }
+    }	
 
 							  
     public static void main (String[] args) {
 	int iterations = 10000;
-	int nInsert = 100;
+	int nOperations = 100;
+	int nThreads = 10;
+	int minValue = 0;
+	int maxValue = 3;
+
 	for (int i = 0; i < iterations; i ++) {
 	    BST tree = new BST();
-	    Inserter t1 = new Inserter(tree,nInsert);
-	    Inserter t2 = new Inserter(tree,nInsert);
-	    Inserter t3 = new Inserter(tree,nInsert);
-	    Inserter t4 = new Inserter(tree,nInsert);
-	    t1.start();
-	    t2.start();
-	    t3.start();
-	    t4.start();
+	    List<Thread> threads = new ArrayList<Thread>();
+	    for (int t = 0; t < nThreads; t++) {
+		if (t % 2 == 0)
+		    threads.add( new Inserter(tree, nOperations, minValue, maxValue) );
+		else
+		    threads.add( new Deleter(tree, nOperations, minValue, maxValue) );
+	    }
+	    for (Thread t : threads)
+		t.start();
+
 	    try {
-		t1.join();
-		t2.join();
-		t3.join();
-		t4.join();
+		for (Thread t : threads)
+		    t.join();		
 	    } catch (InterruptedException e) {
 		System.out.println("Whatever..");
 	    }
@@ -180,17 +231,51 @@ public class BST {
 class Inserter extends Thread {
 
     private BST tree;
-    int nInsert;
+    int nOps;
+    int minValue,maxValue;
 
-    public Inserter(BST tree,int nInsert) {
+    public Inserter(BST tree,int nOps, int minValue, int maxValue) {
 	this.tree = tree;
-	this.nInsert = nInsert;
+	this.nOps = nOps;
+	this.minValue = minValue;
+	this.maxValue = maxValue;
     }
 
     public void run() {
-	for (int i = 0; i < nInsert; i++) {
-	    int el = ThreadLocalRandom.current().nextInt(0,5);
-	    tree.insert(el);
+	for (int i = 0; i < nOps; i++) {
+	    int el = ThreadLocalRandom.current().nextInt(minValue,maxValue);
+	    //System.out.println("Thread:"+this.getId()+" Insert(" + el + ") - " + tree.prettyPrint());
+	    try {
+		tree.insert(el);	    
+	    } catch (NullPointerException e) {
+		System.exit(1);
+	    }
+	}
+    }
+}
+
+class Deleter extends Thread {
+
+    private BST tree;
+    int nOps;
+    int minValue, maxValue;
+
+    public Deleter(BST tree,int nOps, int minValue, int maxValue) {
+	this.tree = tree;
+	this.nOps = nOps;
+	this.minValue = minValue;
+	this.maxValue = maxValue;
+    }
+
+    public void run() {
+	for (int i = 0; i < nOps; i++) {
+	    int el = ThreadLocalRandom.current().nextInt(minValue,maxValue);
+	    //System.out.println("Thread:"+this.getId()+" Delete(" + el + ") - " + tree.prettyPrint());
+	    try {
+		tree.delete(el);
+	    } catch (NullPointerException e) {
+		System.exit(1);
+	    }
 	}
     }
 }
