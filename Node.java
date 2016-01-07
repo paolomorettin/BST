@@ -1,60 +1,73 @@
 
-import java.util.concurrent.atomic.AtomicInteger;
-import java.util.concurrent.atomic.AtomicReference;
+import java.util.concurrent.atomic.*;
 
-class Node {
-    public static final int FREE = 0;
-    public static final int FLAG = 1;
-    public static final int MARK = 2;
+public class Node {
 
-    private final int key;
+    public static final int DUMMY1 = Integer.MAX_VALUE;
+    public static final int DUMMY2 = Integer.MAX_VALUE - 1;
+
+    public static final int CLEAN = 0;
+    public static final int IFLAG = 1;
+    public static final int DFLAG = 2;
+    public static final int MARK = 3;
+
+    private int key;
+    public AtomicStampedReference<Info> state;
     public AtomicReference<Node> left, right;
-    public AtomicInteger flagMark;
+    private boolean isLeaf;
 
     public Node(int key, Node left, Node right) {
 	this.key = key;
 	this.left = new AtomicReference<Node>(left);
 	this.right = new AtomicReference<Node>(right);
-	this.flagMark = new AtomicInteger(Node.FREE);
+	state = new AtomicStampedReference<Info>(null,CLEAN);
+	isLeaf = false;
     }
 
-    public String prettyPrint() {
-	if (left.get() == null && right.get() == null)
-	    return "[ " + key + " ]";
-	else
-	    return "( " + key + " {" + flagMark.get() + "} " + left.get().prettyPrint() + " " + right.get().prettyPrint() + " )";
+    public Node(int key) {
+	this.key = key;
+	this.left = new AtomicReference<Node>(null);
+	this.right = new AtomicReference<Node>(null);
+	state = null;
+	isLeaf = true;
     }
 
-    public String prettyLeaves() {
-	if (left.get() == null && right.get() == null)
-	    return " " + key;
-	else
-	    return left.get().prettyLeaves() + right.get().prettyLeaves();
+    public boolean isLeaf() {
+	return isLeaf;
+    }
+
+    public int getKey() {
+	return key;
     }
 
     public boolean verify(int lower, int upper) {
-	// verify bounds on key
-	if (key < lower)
-	    return false;
-	if (key >= upper)
-	    return false;
+	// verify bounds on key (except for dummy nodes)
+	if (key != Node.DUMMY1 && key != Node.DUMMY2) {
+	    if (key < lower)
+		return false;
+	    if (key >= upper)
+		return false;
+	}
 
-	Node l = left.get();
-	Node r = right.get();
-
-	if ((l == null && r != null) || (l != null && r == null))
-	    return false;
-
-	// if it's not a leaf, verify branches
-	if (l != null && right != null)
+	if (!isLeaf) {
+	    Node l = left.get();
+	    Node r = right.get();
 	    return l.verify(lower,key) && r.verify(key,upper);
-
-	// verify structure (both pointers to null, or none of them)
+	}
+	return true;
+    }
+    public String prettyPrint() {
+	if (isLeaf)
+	    return "[ " + key + " ]";
 	else
-	    return true; //!((l == null && right != null) || (l != null && right == null));
+	    return "( " + key + " " + left.get().prettyPrint() + " " + right.get().prettyPrint() + " )";
     }
 
-    public int getKey () { return key; }
-    public boolean isLeaf () { return (left.get() == null && right.get() == null); }
 }
+	
+
+    
+    
+    
+    
     
