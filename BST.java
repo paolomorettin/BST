@@ -37,7 +37,8 @@ public class BST {
 		return false;
 
 	    if (pstamp != Node.CLEAN) { // there's a pending operation on parent node: help and start over
-		help(p.state);
+		//help(p.state);
+		help(pref,pstamp);
 	    }
 	    else {
 		newSibling = new Node(lKey); // create the new internal node
@@ -52,8 +53,11 @@ public class BST {
 		    helpInsert(op); // successful "iflag", complete the operation
 		    return true;
 		}
-		else
-		    help(p.state); // failed "iflag", help with the pending operation
+		else {
+		    int[] stampHolder = new int[1];
+		    Info refHolder = p.state.get(stampHolder);
+		    help(refHolder,stampHolder[0]);
+		}
 	    }
 
 	}	
@@ -85,11 +89,11 @@ public class BST {
 
 	    if (gpstamp != Node.CLEAN) { // pending operation on grandparent, help
 		//System.out.println(Thread.currentThread().getId()+" Delete("+key+") -> help gp");
-		help(gp.state); // XXX
+		help(gpref,gpstamp);
 	    }
 	    else if (pstamp != Node.CLEAN) { // pending operation on parent, help
 		//System.out.println(Thread.currentThread().getId()+" Delete("+key+") -> help p");
-		help(p.state); // XXX
+		help(pref,pstamp); // XXX
 	    }
 	    else {
 		op = new DInfo(gp,p,l,pref,pstamp); // create a record with information on the current delete
@@ -100,7 +104,10 @@ public class BST {
 		}
 		else {
 		    //System.out.println(Thread.currentThread().getId()+" Delete("+key+") -> help (after unsuccessful dflag)");
-		    help(gp.state);
+		    //help(gp.state.getReference(),gp.state.getStamp());
+		    int[] stampHolder = new int[1];
+		    Info refHolder = gp.state.get(stampHolder);
+		    help(refHolder,stampHolder[0]);
 		}
 	    }
 	}	
@@ -117,9 +124,13 @@ public class BST {
 	    res.gp = res.p;
 	    res.p = res.l;
 	    res.gpstamp = res.pstamp;
-	    res.pstamp = res.p.state.getStamp();
 	    res.gpref = res.pref;
-	    res.pref = res.p.state.getReference();
+
+	    int[] aux = new int[1];
+	    res.pref = res.p.state.get(aux);
+	    res.pstamp = aux[0];
+	    //res.pstamp = res.p.state.getStamp();
+	    //res.pref = res.p.state.getReference();
 	    if (key < res.l.getKey())
 		res.l = res.p.left.get();
 	    else
@@ -129,6 +140,19 @@ public class BST {
 	return res;
     }
 
+    private void help(Info ref,int stamp) { // generic helping routine
+	int debug = -1;
+	try {
+	switch (stamp) {
+	case (Node.IFLAG) : debug = 1; helpInsert((IInfo)ref); break;
+	case (Node.MARK) : debug = 2; helpMarked((DInfo)ref); break;
+	case (Node.DFLAG) : debug = 3; helpDelete((DInfo)ref); break;
+	default: break;
+	}
+	} catch (ClassCastException e) { System.out.println("Eccolo! Caso "+debug + " " + ref); System.exit(1);}
+    }
+
+    /*
     private void help(AtomicStampedReference<Info> update) { // generic helping routine
 	int debug = -1;
 	try {
@@ -139,7 +163,7 @@ public class BST {
 	default: break;
 	}
 	} catch (ClassCastException e) { System.out.println("Eccolo! Caso "+debug); System.exit(1);}
-    }
+	}*/
 
     private void helpInsert(IInfo op) {
 	assert (op != null);
@@ -163,8 +187,11 @@ public class BST {
 	    return true;
 	}
 	else {
-	    System.out.println(Thread.currentThread().getId()+" helpDelete -> help");
-	    help(op.p.state);
+	    //System.out.println(Thread.currentThread().getId()+" helpDelete -> help");
+	    //help(op.p.state.getReference(),op.p.state.getStamp());
+	    int[] stampHolder = new int[1];
+	    Info refHolder = op.p.state.get(stampHolder);
+	    help(refHolder,stampHolder[0]);
 	    op.gp.state.compareAndSet(op,op,Node.DFLAG,Node.CLEAN); // unflag
 	    return false;
 	}
@@ -184,7 +211,7 @@ public class BST {
 	op.gp.state.compareAndSet(op,op,Node.DFLAG,Node.CLEAN);
 	/*
 	if (!op.gp.state.compareAndSet(op,op,Node.DFLAG,Node.CLEAN)) { // unflag
-	    //System.out.printf("DUNFLAG failed\n");
+	    System.out.printf("DUNFLAG failed\n");
 	    //System.exit(1);
 	    
 	    }*/
