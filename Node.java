@@ -1,4 +1,5 @@
 
+import java.util.*;
 import java.util.concurrent.atomic.*;
 
 public class Node {
@@ -26,8 +27,12 @@ public class Node {
 
     public Node(int key) {
 	this.key = key;
+	/*
 	this.left = new AtomicReference<Node>(null);
 	this.right = new AtomicReference<Node>(null);
+	*/
+	this.left = null;
+	this.right = null;
 	state = null;
 	isLeaf = true;
     }
@@ -63,6 +68,18 @@ public class Node {
 	    return "( " + key + " " + left.get().prettyPrint() + " " + right.get().prettyPrint() + " )";
     }
 
+    public TreeSet<Integer> getKeys() {
+	TreeSet<Integer> result = new TreeSet<Integer>();
+	if (isLeaf) {
+	    if (key != Node.DUMMY1 && key != Node.DUMMY2)
+		result.add(key);
+	}
+	else {
+	    result.addAll(left.get().getKeys());
+	    result.addAll(right.get().getKeys());
+	}
+	return result;
+    }
 }
 	
 

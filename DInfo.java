@@ -5,12 +5,14 @@ import java.util.concurrent.atomic.AtomicStampedReference;
 public class DInfo extends Info {
 
     public Node gp;
-    public AtomicStampedReference<Info> pupdate;
+    public Info pref;
+    public int pstamp;
 
-    public DInfo(Node gp, Node p, Node l, AtomicStampedReference<Info> pupdate) {
+    public DInfo(Node gp, Node p, Node l, Info pref, int pstamp) {
 	super(p,l);
 	this.gp = gp;
-	this.pupdate = pupdate;
+	this.pstamp = pstamp;
+	this.pref = pref;
     }
 }
     
