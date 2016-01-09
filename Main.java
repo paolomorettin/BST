@@ -38,7 +38,7 @@ public class Main {
 	return true;
     }
 
-    public static boolean correctnessTest(int iterations, int minValue, int maxValue) {
+    public static boolean correctnessTest(int iterations, int nThreads, int minValue, int maxValue) {
 	System.out.println("Correctness");
 	for (int i = 0; i < iterations; i ++) {
 	    System.out.println("Correctness " + i + ": Iteration started!");
@@ -66,17 +66,24 @@ public class Main {
 
 	    List<Integer> inserts = new ArrayList<Integer>(I);
 	    List<Integer> deletes = new ArrayList<Integer>(D);
+	    List<Thread> threadList = new ArrayList<Thread>();
 
-	    ListInserter ti = new ListInserter(tree,inserts);
-	    ListDeleter td = new ListDeleter(tree,deletes);
+	    for (int j = 0; j < nThreads; j++) {		
+		if (j % 2 == 0) {
+		    Collections.shuffle(inserts);
+		    threadList.add(new ListInserter(tree,inserts));
+		} else {
+		    Collections.shuffle(deletes);
+		    threadList.add(new ListDeleter(tree,deletes));
+		}
+	    }
 
-	    ti.start();
-	    td.start();
+	    for (Thread t : threadList)
+		t.start();
 
 	    try {
-		ti.join();
-		td.join();
-
+		for (Thread t : threadList)
+		    t.join();
 	    } catch (InterruptedException e) {
 		System.out.println("Whatever..");
 		return false;
@@ -103,11 +110,11 @@ public class Main {
 
 	int iterations = 10000;
 	int nOps = 1000;
-	int nThreads = 20;
+	int nThreads = 30;
 	int minValue = -5;
 	int maxValue = 5;
 
-	if (!correctnessTest(iterations, minValue, maxValue) || !stressTest(iterations,nOps,nThreads,minValue,maxValue)) {
+	if (!correctnessTest(iterations, nThreads, minValue, maxValue) || !stressTest(iterations,nOps,nThreads,minValue,maxValue)) {
 	    System.out.println("Fuck!");
 	    System.exit(1);
 	} 
