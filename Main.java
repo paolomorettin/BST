@@ -107,18 +107,22 @@ public class Main {
     }
 
     public static void main (String[] args) {
-
+	
 	int iterations = 10000;
 	int nOps = 1000;
 	int nThreads = 30;
 	int minValue = -5;
 	int maxValue = 5;
-
-	if (!correctnessTest(iterations, nThreads, minValue, maxValue) || !stressTest(iterations,nOps,nThreads,minValue,maxValue)) {
-	    System.out.println("Fuck!");
-	    System.exit(1);
-	} 
-	System.out.println("Oh yeah!");	    
+	for (int i = 0; i < 10; i++) {
+	    nThreads = ThreadLocalRandom.current().nextInt(2,11); // varying the number of threads
+	    minValue = ThreadLocalRandom.current().nextInt(-100,+100);
+	    maxValue = minValue + ThreadLocalRandom.current().nextInt(1,50);
+	    if (!correctnessTest(iterations, nThreads, minValue, maxValue) || !stressTest(iterations,nOps,nThreads,minValue,maxValue)) {
+		System.out.println("Fuck!");
+		System.exit(1);
+	    } 
+	    System.out.println("Oh yeah! x"+i);
+	}	    
     }
 }
 
