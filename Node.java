@@ -4,9 +4,11 @@ import java.util.concurrent.atomic.*;
 
 public class Node {
 
+    // values for dummy nodes
     public static final int DUMMY1 = Integer.MAX_VALUE;
     public static final int DUMMY2 = Integer.MAX_VALUE - 1;
 
+    // mark/flag values
     public static final int CLEAN = 0;
     public static final int IFLAG = 1;
     public static final int DFLAG = 2;
@@ -18,6 +20,7 @@ public class Node {
     private boolean isLeaf;
 
     public Node(int key, Node left, Node right) {
+	// constructor for an internal node
 	this.key = key;
 	this.left = new AtomicReference<Node>(left);
 	this.right = new AtomicReference<Node>(right);
@@ -26,11 +29,8 @@ public class Node {
     }
 
     public Node(int key) {
+	// constructor for a leaf
 	this.key = key;
-	/*
-	this.left = new AtomicReference<Node>(null);
-	this.right = new AtomicReference<Node>(null);
-	*/
 	this.left = null;
 	this.right = null;
 	state = null;
@@ -46,7 +46,7 @@ public class Node {
     }
 
     public boolean verify(int lower, int upper) {
-	// verify bounds on key (except for dummy nodes)
+	/* this method recursively verifies upper/lower bounds on the keys */
 	if (key != Node.DUMMY1 && key != Node.DUMMY2) {
 	    if (key < lower)
 		return false;
@@ -62,6 +62,10 @@ public class Node {
 	return true;
     }
     public String prettyPrint() {
+	/* this method returns a string representation of the current subtree
+	   internal nodes are enclosed in round brackets, leaves are enclosed in square brackets
+	   e.g. ( 5 [ 3 ] ( 7 [ 5 ] [ 7 ] ) )
+	*/
 	if (isLeaf)
 	    return "[ " + key + " ]";
 	else
@@ -69,6 +73,7 @@ public class Node {
     }
 
     public TreeSet<Integer> getKeys() {
+	/* this method returns the set of keys of the current subtree */
 	TreeSet<Integer> result = new TreeSet<Integer>();
 	if (isLeaf) {
 	    if (key != Node.DUMMY1 && key != Node.DUMMY2)
@@ -80,6 +85,16 @@ public class Node {
 	}
 	return result;
     }
+
+    public String DOTFormat() {
+	/* this method returns a string representing the current subtree in .DOT format 
+	   (without the graph name and curly brackets)
+	*/
+	if (isLeaf)
+	    return "l" + key + "\nl" + key + " [label="+ key + "]\n";
+	else
+	    return "i" + key + " -> " + left.get().DOTFormat() + "i" + key + " -> " + right.get().DOTFormat() + "i" + key + " [label="+ key + "]\n";
+    }    
 }
 	
 

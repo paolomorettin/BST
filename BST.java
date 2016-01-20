@@ -73,7 +73,6 @@ public class BST {
 	DInfo op;
 
 	while (true) {
-	    //System.out.println(Thread.currentThread().getId()+" Delete("+key+") cycle");
 	    SearchResult res = search(key); // traverse the tree
 	    gp = res.gp;
 	    p = res.p;
@@ -88,23 +87,18 @@ public class BST {
 		return false;
 
 	    if (gpstamp != Node.CLEAN) { // pending operation on grandparent, help
-		//System.out.println(Thread.currentThread().getId()+" Delete("+key+") -> help gp");
 		help(gpref,gpstamp);
 	    }
 	    else if (pstamp != Node.CLEAN) { // pending operation on parent, help
-		//System.out.println(Thread.currentThread().getId()+" Delete("+key+") -> help p");
 		help(pref,pstamp); // XXX
 	    }
 	    else {
 		op = new DInfo(gp,p,l,pref,pstamp); // create a record with information on the current delete
 		if (gp.state.compareAndSet(gpref,op,gpstamp,Node.DFLAG)) { // "dflag" CAS
-		    //System.out.println(Thread.currentThread().getId()+" Delete("+key+") -> helpDelete (after successful dflag)");
 		    if (helpDelete(op)) // either complete the delete or "dunflag"
 			return true;
 		}
 		else {
-		    //System.out.println(Thread.currentThread().getId()+" Delete("+key+") -> help (after unsuccessful dflag)");
-		    //help(gp.state.getReference(),gp.state.getStamp());
 		    int[] stampHolder = new int[1];
 		    Info refHolder = gp.state.get(stampHolder);
 		    help(refHolder,stampHolder[0]);
@@ -129,8 +123,6 @@ public class BST {
 	    int[] aux = new int[1];
 	    res.pref = res.p.state.get(aux);
 	    res.pstamp = aux[0];
-	    //res.pstamp = res.p.state.getStamp();
-	    //res.pref = res.p.state.getReference();
 	    if (key < res.l.getKey())
 		res.l = res.p.left.get();
 	    else
@@ -152,43 +144,17 @@ public class BST {
 	} catch (ClassCastException e) { System.out.println("Eccolo! Caso "+debug + " " + ref); System.exit(1);}
     }
 
-    /*
-    private void help(AtomicStampedReference<Info> update) { // generic helping routine
-	int debug = -1;
-	try {
-	switch (update.getStamp()) {
-	case (Node.IFLAG) : debug = 1; helpInsert((IInfo)update.getReference()); break;
-	case (Node.MARK) : debug = 2; helpMarked((DInfo)update.getReference()); break;
-	case (Node.DFLAG) : debug = 3; helpDelete((DInfo)update.getReference()); break;
-	default: break;
-	}
-	} catch (ClassCastException e) { System.out.println("Eccolo! Caso "+debug); System.exit(1);}
-	}*/
-
     private void helpInsert(IInfo op) {
-	//assert (op != null);
-
-	//System.out.println(Thread.currentThread().getId()+" helpInsert -> CASChild");
 	CASChild(op.p, op.l, op.newInternal); // "ichild" CAS
 	op.p.state.compareAndSet(op,op,Node.IFLAG,Node.CLEAN); // "iunflag" CAS
     }
 
     private boolean helpDelete(DInfo op) {
-	//assert (op != null);
-
-	//System.out.println(Thread.currentThread().getId()+" helpDelete");
-	/*
-	int[] result = {0,0};
-	op.p.state.get(result);
-	*/
 	if ((op.p.state.getReference() == op && op.p.state.getStamp() == Node.MARK) || op.p.state.compareAndSet(op.pref,op,op.pstamp,Node.MARK)) {
-	    //System.out.println(Thread.currentThread().getId()+" helpDelete -> helpMarked");
 	    helpMarked(op);
 	    return true;
 	}
 	else {
-	    //System.out.println(Thread.currentThread().getId()+" helpDelete -> help");
-	    //help(op.p.state.getReference(),op.p.state.getStamp());
 	    int[] stampHolder = new int[1];
 	    Info refHolder = op.p.state.get(stampHolder);
 	    help(refHolder,stampHolder[0]);
@@ -198,29 +164,17 @@ public class BST {
     }
 
     private void helpMarked(DInfo op) {
-	//assert (op != null);
-
-	//System.out.println(Thread.currentThread().getId()+" helpMarked");
 	Node other;
 	if (op.p.right.get() == op.l)
 	    other = op.p.left.get();
 	else
 	    other = op.p.right.get();
-	//System.out.println(Thread.currentThread().getId()+" helpMarked -> CASChild");
+
 	CASChild(op.gp,op.p,other);
 	op.gp.state.compareAndSet(op,op,Node.DFLAG,Node.CLEAN);
-	/*
-	if (!op.gp.state.compareAndSet(op,op,Node.DFLAG,Node.CLEAN)) { // unflag
-	    System.out.printf("DUNFLAG failed\n");
-	    //System.exit(1);
-	    
-	    }*/
     }
 
     private void CASChild(Node parent, Node old, Node newNode) {
-	//assert (parent != null && newNode != null);
-
-	//System.out.println(Thread.currentThread().getId()+" CASChild");
 	if (newNode.getKey() < parent.getKey())
 	    parent.left.compareAndSet(old,newNode);
 	else
@@ -233,7 +187,8 @@ public class BST {
     }
 
     public synchronized String prettyPrint() {
-	Node temp = root.get().left.get(); // do not print dummy nodes
+	// this method returns the tree
+	Node temp = root.get().left.get(); // do not include dummy nodes
 	if (!temp.isLeaf())
 	    return temp.left.get().prettyPrint();
 	else
@@ -241,18 +196,25 @@ public class BST {
     }
 
     public TreeSet<Integer> getKeys() {
+	// this method returns the set of keys in the tree
 	return root.get().getKeys();
     }
 
-    private class SearchResult { // ugly hack
+    public synchronized String DOTFormat(String graphName) {
+	// this method returns the tree in .DOT format
+	String edges = "";
+	Node temp = root.get().left.get(); // do not include dummy nodes
+	if (!temp.isLeaf())
+	    edges = temp.left.get().DOTFormat();
+
+	return "digraph " + graphName + " {\n" + edges + "}\n";
+    }
+
+    private class SearchResult {
+	// This is basically a struct that contains the result of a search operation.
 	public Node l = null;
 	public Node p = null;
 	public Node gp = null;
-	/*
-	public AtomicStampedReference<Info> gpstate = null;
-	public AtomicStampedReference<Info> pstate = null;
-	*/
-
 	public Info gpref,pref;
 	public int gpstamp, pstamp;
     }
