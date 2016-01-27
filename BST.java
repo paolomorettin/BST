@@ -4,7 +4,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.concurrent.atomic.AtomicStampedReference;
 
 public class BST {
-
+    /* This class implements a concurrent non-blocking linearizable Binary Search Tree */
+       
     private AtomicReference<Node> root;
     
     public BST() {
@@ -90,7 +91,7 @@ public class BST {
 		help(gpref,gpstamp);
 	    }
 	    else if (pstamp != Node.CLEAN) { // pending operation on parent, help
-		help(pref,pstamp); // XXX
+		help(pref,pstamp);
 	    }
 	    else {
 		op = new DInfo(gp,p,l,pref,pstamp); // create a record with information on the current delete
@@ -133,15 +134,12 @@ public class BST {
     }
 
     private void help(Info ref,int stamp) { // generic helping routine
-	int debug = -1;
-	try {
 	switch (stamp) {
-	case (Node.IFLAG) : debug = 1; helpInsert((IInfo)ref); break;
-	case (Node.MARK) : debug = 2; helpMarked((DInfo)ref); break;
-	case (Node.DFLAG) : debug = 3; helpDelete((DInfo)ref); break;
+	case (Node.IFLAG) : helpInsert((IInfo)ref); break;
+	case (Node.MARK) : helpMarked((DInfo)ref); break;
+	case (Node.DFLAG) : helpDelete((DInfo)ref); break;
 	default: break;
 	}
-	} catch (ClassCastException e) { System.out.println("Eccolo! Caso "+debug + " " + ref); System.exit(1);}
     }
 
     private void helpInsert(IInfo op) {
@@ -187,7 +185,6 @@ public class BST {
     }
 
     public synchronized String prettyPrint() {
-	// this method returns the tree
 	Node temp = root.get().left.get(); // do not include dummy nodes
 	if (!temp.isLeaf())
 	    return temp.left.get().prettyPrint();
@@ -201,7 +198,6 @@ public class BST {
     }
 
     public synchronized String DOTFormat(String graphName) {
-	// this method returns the tree in .DOT format
 	String edges = "";
 	Node temp = root.get().left.get(); // do not include dummy nodes
 	if (!temp.isLeaf())

@@ -12,11 +12,39 @@ public class Main {
 	usage += "MODES\\PARAMS:\n";
 	usage += "\t- \"random\" iterations n_ops_per_thread n_threads min_value max_value\n";
 	usage += "\t- \"correctness\" iterations n_threads min_value max_value\n";
-	usage += "\t- \"sequential\" graph_name min_value max_value\n";
+	usage += "\t- \"sequentialdemo\" graph_name min_value max_value\n";
+	usage += "\t- \"demo\" graph_name min_value max_value\n";
 	System.out.printf(usage);
     }
 
-    private static void sequentialTest(String graphname, int minValue, int maxValue) {
+    private static void demo(String graphName, int minValue, int maxValue) {
+	int nThreads = 7;
+	BST tree = new BST();
+	List<Thread> threads = new ArrayList<Thread>();
+	for (int i = 0; i < nThreads; i++)
+	    threads.add( new demoThread(tree,minValue,maxValue) );
+
+	for (Thread t : threads)
+	    t.start();
+
+	try {
+	    for (Thread t : threads)
+		t.join();
+	} catch (InterruptedException e) {
+	    System.out.println("Whatever..");
+	}
+	List<String> lines = Arrays.asList(tree.DOTFormat(graphName));
+	Path file = Paths.get(graphName + ".dot");
+	try {
+	    Files.write(file, lines, Charset.forName("UTF-8"));
+	} catch (IOException e) {
+	    System.out.println("Something went wrong writing the .dot file");
+	    System.exit(1);
+	}
+	System.out.println("Done!");	    	
+    }
+
+    private static void sequentialDemo(String graphName, int minValue, int maxValue) {
 	/* this function sequentially performs (in this order):
 	   - 10 random insertions
 	   - 5 random deletions
@@ -29,7 +57,7 @@ public class Main {
 	BST tree = new BST();
 	boolean outcome;
 	int element;
-	System.out.println("Sequential test:");
+	System.out.println("Sequential demo:");
 	System.out.println("Initial tree: " + tree.prettyPrint());
 	for (int i = 0; i < 10; i++) {
 	    element = ThreadLocalRandom.current().nextInt(minValue, maxValue);
@@ -50,8 +78,8 @@ public class Main {
 	}
 	    
 	
-	List<String> lines = Arrays.asList(tree.DOTFormat(graphname));
-	Path file = Paths.get(graphname + ".dot");
+	List<String> lines = Arrays.asList(tree.DOTFormat(graphName));
+	Path file = Paths.get(graphName + ".dot");
 	try {
 	    Files.write(file, lines, Charset.forName("UTF-8"));
 	} catch (IOException e) {
@@ -222,8 +250,8 @@ public class Main {
 		    System.out.println("OK!");
 		else
 		    System.out.println("Not OK");
-	    } else if (args[0].equals("sequential")) {
-		String graphname = args[1];
+	    } else if (args[0].equals("sequentialdemo")) {
+		String graphName = args[1];
 		int minValue = Integer.parseInt(args[2]);
 		int maxValue = Integer.parseInt(args[3]);
 
@@ -231,7 +259,20 @@ public class Main {
 		    System.out.println("minValue shouldn't be greater than maxValue");
 		    System.exit(1);
 		}
-		sequentialTest(graphname,minValue,maxValue);
+		sequentialDemo(graphName,minValue,maxValue);
+	    } else if (args[0].equals("demo")) {
+		String graphName = args[1];
+		int minValue = Integer.parseInt(args[2]);
+		int maxValue = Integer.parseInt(args[3]);
+
+		if (minValue > maxValue) {
+		    System.out.println("minValue shouldn't be greater than maxValue");
+		    System.exit(1);
+		}
+		demo(graphName,minValue,maxValue);
+	    } else {
+		printUsage();
+		System.exit(1);
 	    }
 	} catch (ArrayIndexOutOfBoundsException e) {
 	    printUsage();
@@ -359,6 +400,59 @@ class ListDeleter extends Thread {
 		System.out.println("ListDeleter: NullPointerException");
 		System.exit(1);
 	    }
+	}
+    }
+}
+
+class demoThread extends Thread {
+    /* this class implements a thread for the "demo" utility.
+       it performs 10 insert, 5 delete and 5 find (not necessarily in
+       this order) with random keys in [minValue,maxValue[
+    */
+
+    private BST tree;
+    private int nInsert = 10;
+    private int nDelete = 5;
+    private int nFind = 5;
+    private int minValue,maxValue;
+
+
+    public demoThread(BST tree, int minValue, int maxValue) {
+	this.tree = tree;
+	this.minValue = minValue;
+	this.maxValue = maxValue;
+    }
+
+    public void run() {
+	int el;
+	boolean outcome;
+	try {
+	    while ( nInsert + nDelete + nFind > 0) {
+		el = ThreadLocalRandom.current().nextInt(minValue,maxValue);
+		switch (ThreadLocalRandom.current().nextInt(0,4)) {
+		case 0 :
+		    if (nInsert > 0) {
+		    outcome = tree.insert(el);
+		    System.out.printf("Thread %d: insert(%d) -> %b\nTree: %s\n",this.getId(),el,outcome,tree.prettyPrint());
+		    nInsert--; 
+		    } break;
+		case 1 :
+		    if (nDelete > 0) {
+		    outcome = tree.delete(el);
+		    System.out.printf("Thread %d: delete(%d) -> %b\nTree: %s\n",this.getId(),el,outcome,tree.prettyPrint());
+		    nDelete--;
+		    } break;
+		case 2 : 
+		    if (nFind > 0) {
+		    outcome = tree.find(el);
+		    System.out.printf("Thread %d: find(%d) -> %b\nTree: %s\n",this.getId(),el,outcome,tree.prettyPrint());
+		    nFind--;
+		    } break;
+		}
+	    }
+	} catch (NullPointerException e) {
+	    System.out.println("demoThread: NullPointerException");
+	    System.exit(1);
 	}
     }
 }

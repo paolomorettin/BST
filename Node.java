@@ -90,10 +90,11 @@ public class Node {
 	/* this method returns a string representing the current subtree in .DOT format 
 	   (without the graph name and curly brackets)
 	*/
+	String kStr = (key < 0) ? ("m" + (-1 * key)) : ""+key;
 	if (isLeaf)
-	    return "l" + key + "\nl" + key + " [label="+ key + "]\n";
+	    return "l" + kStr + "\nl" + kStr + " [label="+ key + "]\n";
 	else
-	    return "i" + key + " -> " + left.get().DOTFormat() + "i" + key + " -> " + right.get().DOTFormat() + "i" + key + " [label="+ key + "]\n";
+	    return "i" + kStr + " -> " + left.get().DOTFormat() + "i" + kStr + " -> " + right.get().DOTFormat() + "i" + kStr + " [label="+ key + "]\n";
     }    
 }
 	
